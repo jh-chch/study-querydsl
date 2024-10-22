@@ -1,5 +1,6 @@
 package com.spring.querydsl;
 
+import static com.querydsl.jpa.JPAExpressions.select;
 import static com.spring.querydsl.entity.QMember.member;
 import static com.spring.querydsl.entity.QTeam.team;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -14,8 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.spring.querydsl.entity.Member;
+import com.spring.querydsl.entity.QMember;
 import com.spring.querydsl.entity.Team;
 
 import jakarta.persistence.EntityManager;
@@ -182,5 +186,114 @@ public class QuerydslBasicTest {
 
 		assertThat(teamA.get(team.name)).isEqualTo("teamA");
 		assertThat(teamA.get(member.age.avg())).isEqualTo(15);
+	}
+
+	@DisplayName("teamA의 모든 회원 검색")
+	@Test
+	void join() {
+		List<Member> result = queryFactory
+				.selectFrom(member)
+				.join(member.team, team)
+				.where(team.name.eq("teamA"))
+				.fetch();
+
+		assertThat(result)
+				.extracting("username")
+				.containsExactly("member1", "member2");
+	}
+
+	@DisplayName("회원-팀 join하면서, 팀 이름이 teamA인 팀만 조인, 회원은 모두 조회")
+	@Test
+	void join_on() {
+		queryFactory
+				.select(member, team)
+				.from(member)
+				.leftJoin(member.team, team).on(team.name.eq("teamA"))
+				.fetch();
+	}
+
+	@Test
+	void fetchJoin() {
+		queryFactory
+				.selectFrom(member)
+				.join(member.team, team).fetchJoin()
+				.where(member.username.eq("member1"))
+				.fetchOne();
+	}
+
+	@DisplayName("나이가 가장 많은 회원 조회")
+	@Test
+	void subQuery() {
+		QMember memberSub = new QMember("memberSub");
+
+		List<Member> result = queryFactory
+				.selectFrom(member)
+				.where(member.age.eq(
+						select(memberSub.age.max())
+								.from(memberSub)))
+				.fetch();
+
+		assertThat(result).extracting("age")
+				.containsExactly(40);
+	}
+
+	@Test
+	void select_subQuery() {
+		QMember memberSub = new QMember("memberSub");
+
+		queryFactory
+				.select(member.username,
+						select(memberSub.age.avg())
+								.from(memberSub))
+				.from(member)
+				.fetch();
+	}
+
+	@Test
+	void basicCase() {
+		queryFactory
+				.select(member.age
+						.when(10).then("열살")
+						.when(20).then("스무살")
+						.otherwise("기타"))
+				.from(member)
+				.fetch();
+	}
+
+	@Test
+	void complexCase() {
+		queryFactory
+				.select(new CaseBuilder()
+						.when(member.age.between(0, 20)).then("0~20살")
+						.otherwise("기타"))
+				.from(member)
+				.fetch();
+	}
+
+	@DisplayName("상수")
+	@Test
+	void constant() {
+		List<Tuple> result = queryFactory
+				.select(member.username, Expressions.constant("A"))
+				.from(member)
+				.fetch();
+
+		for (Tuple tuple : result) {
+			System.out.println(tuple); // tuple = [member1, A] ...
+		}
+	}
+
+	@DisplayName("문자 더하기")
+	@Test
+	void concat() {
+		List<String> result = queryFactory
+				// .select(member.username.concat("_").concat(member.age)) member.age는 숫자라 안됨
+				.select(member.username.concat("_").concat(member.age.stringValue()))
+				.from(member)
+				.fetch();
+
+		for (String s : result) {
+			System.out.println(s);
+		}
 	}
 }
