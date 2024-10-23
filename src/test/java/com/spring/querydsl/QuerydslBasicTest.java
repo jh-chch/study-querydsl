@@ -296,4 +296,44 @@ public class QuerydslBasicTest {
 			System.out.println(s);
 		}
 	}
+
+	@DisplayName("수정, 삭제 배치 쿼리")
+	@Test
+	void bulkUpdate() {
+		// 해당 쿼리(벌크 연산)는 DB의 상태를 변경하지만 영속성 컨텍스트의 상태는 변경이 안되어 데이터 불일치
+		long count = queryFactory
+				.update(member)
+				.set(member.username, "비회원")
+				.where(member.age.lt(20))
+				.execute();
+
+		// em.flush();
+		// em.clear();
+
+		// select 쿼리는 나가지만 영속성 컨텍스트와 중복된 데이터가 있다면
+		// 영속성 컨텍스트 값이 우선된다.
+		List<Member> resultfet = queryFactory
+				.selectFrom(member)
+				.fetch();
+
+		for (Member member2 : resultfet) {
+			System.out.println(member2); // update전의 데이터가 출력됨
+		}
+	}
+
+	@Test
+	void bulkAdd() {
+		long count = queryFactory
+				.update(member)
+				.set(member.age, member.age.add(1)) // 뺄셈 add(-1), 곱하기 multiply(2) ...
+				.execute();
+	}
+
+	@Test
+	void bulkDelete() {
+		long count = queryFactory
+				.delete(member)
+				.where(member.age.lt(10))
+				.execute();
+	}
 }
