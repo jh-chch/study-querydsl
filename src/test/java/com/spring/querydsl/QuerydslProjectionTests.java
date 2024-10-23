@@ -15,6 +15,7 @@ import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.spring.querydsl.dto.MemberDto;
+import com.spring.querydsl.dto.QMemberDto;
 import com.spring.querydsl.entity.Member;
 import com.spring.querydsl.entity.Team;
 
@@ -121,4 +122,19 @@ public class QuerydslProjectionTests {
         // ExpressionUtils.as(JPAExpressions.select(...), null)
     }
 
+    @DisplayName("@QueryProjection 사용")
+    @Test
+    void queryProjection() {
+        // dto 생성자에 @QueryProjection 어노테이션을 달아주고, complie하면 dto Q파일이 생성된다.
+        List<MemberDto> result = queryFactory
+                .select(new QMemberDto(member.username, member.age)) // 생성자 방식은 런타임 오류 발생하지만 생성자 필드를 추가해도 컴파일시 오류를 잡을 수
+                                                                     // 있다. 다만, 1. QMemberDto 파일을 추가 생성해야하는 단점이 있다. 2.
+                                                                     // DTO가 Querydsl에 의존적이게 된다.
+                .from(member)
+                .fetch();
+        for (MemberDto dto : result) {
+            System.out.println(dto.getUsername());
+            System.out.println(dto.getAge());
+        }
+    }
 }
